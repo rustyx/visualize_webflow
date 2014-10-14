@@ -8,13 +8,13 @@ This script processes spring webflow configuration (flow.xml files) and makes a 
 Note - graphviz must be available on the system PATH.
 
 ```
-usage: visualize_webflow2-split.py \[-h\] \[-d\] \[-s\] \[--skip-flows SKIPFLOWS\]
-                                   \[--skip-states SKIPSTATES\]
-                                   \[--split-states SPLITSTATES\]
-                                   \[--merge-states-min-inputs MERGEMINTOTAL\]
-                                   \[--merge-states-min-common-inputs MERGEMINCOMMON\]
-                                   \[--merge-states-max-diff-inputs MERGEMAXDIFF\]
-                                   \[--hide-conditions\] \[-o OUTPUT\] \[-v\]
+usage: visualize_webflow2-split.py [-h] [-d] [-s] [--skip-flows SKIPFLOWS]
+                                   [--skip-states SKIPSTATES]
+                                   [--split-states SPLITSTATES]
+                                   [--merge-states-min-inputs MERGEMINTOTAL]
+                                   [--merge-states-min-common-inputs MERGEMINCOMMON]
+                                   [--merge-states-max-diff-inputs MERGEMAXDIFF]
+                                   [--hide-conditions] [-o OUTPUT] [-v]
                                    input.xml
 
 positional arguments:
