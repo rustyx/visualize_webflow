@@ -1,11 +1,10 @@
-visualize_webflow
-=================
+# visualize_webflow
 
-Spring WebFlow visualization utility
+### - Spring WebFlow visualization utility
 
 This script processes spring webflow configuration (flow.xml files) and makes a graph of the flow states using graphviz dot utility.
 
-Note - graphviz must be available on the system PATH.
+**Note - [graphviz](http://www.graphviz.org/Download.php)** must be available on the system PATH.
 
 ```
 usage: visualize_webflow2-split.py [-h] [-d] [-s] [--skip-flows SKIPFLOWS]
