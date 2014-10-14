@@ -7,6 +7,7 @@ This script processes spring webflow configuration (flow.xml files) and makes a 
 
 Note - graphviz must be available on the system PATH.
 
+```
 usage: visualize_webflow2-split.py \[-h\] \[-d\] \[-s\] \[--skip-flows SKIPFLOWS\]
                                    \[--skip-states SKIPSTATES\]
                                    \[--split-states SPLITSTATES\]
@@ -44,3 +45,4 @@ optional arguments:
   -o OUTPUT, --output OUTPUT
                         output DOT file name (ignored if -s is specified)
   -v, --verbose         be verbose
+```
