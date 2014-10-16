@@ -13,11 +13,13 @@ usage: visualize_webflow.py [-h] [-d] [-s] [--skip-flows SKIPFLOWS]
                             [--merge-states-min-inputs MERGEMINTOTAL]
                             [--merge-states-min-common-inputs MERGEMINCOMMON]
                             [--merge-states-max-diff-inputs MERGEMAXDIFF]
-                            [--hide-conditions] [-o OUTPUT] [-v]
-                            input.xml
+                            [--hide-conditions]
+                            [--flow-id-path-steps FLOW_ID_PATH_STEPS]
+                            [-o OUTPUT] [-v]
+                            input
 
 positional arguments:
-  input.xml             the path to <webflow-servlet.xml> or <flow.xml>
+  input                 the path to <webflow-servlet.xml> or <flow.xml>
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -41,6 +43,9 @@ optional arguments:
                         auto-merge states with at most this many different
                         inputs (default 7)
   --hide-conditions     hide decision state conditions
+  --flow-id-path-steps FLOW_ID_PATH_STEPS
+                        how many steps in the flow.xml path to use as flow ID
+                        (default 1)
   -o OUTPUT, --output OUTPUT
                         output DOT file name (ignored if -s is specified)
   -v, --verbose         be verbose
