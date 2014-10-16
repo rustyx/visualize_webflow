@@ -16,7 +16,7 @@
 #    with this program; if not, write to the Free Software Foundation, Inc.,
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
-import string, struct, os, re, sys, argparse, subprocess
+import string, struct, os, re, sys, glob, argparse, subprocess
 import xml.etree.ElementTree as ET
 
 parser = argparse.ArgumentParser()
@@ -29,6 +29,7 @@ parser.add_argument('--merge-states-min-inputs', dest='mergeMinTotal', type=int,
 parser.add_argument('--merge-states-min-common-inputs', dest='mergeMinCommon', type=int, default=3, help='auto-merge states with at least this many common inputs (default 3)')
 parser.add_argument('--merge-states-max-diff-inputs', dest='mergeMaxDiff', type=int, default=7, help='auto-merge states with at most this many different inputs (default 7)')
 parser.add_argument('--hide-conditions', dest='hideConditions', action='store_true', help='hide decision state conditions')
+parser.add_argument('--flow-id-path-steps', dest='flow_id_path_steps', type=int, default=1, help='how many steps in the flow.xml path to use as flow ID (default 1)')
 parser.add_argument('-o', '--output', dest='output', default='', help='output DOT file name (ignored if -s is specified)')
 parser.add_argument('-v', '--verbose', dest='verbose', action='count', help='be verbose')
 parser.add_argument('input', help='the path to <webflow-servlet.xml> or <flow.xml>')
@@ -45,7 +46,8 @@ skipTransitions = {}
 hideConditions = args.hideConditions
 
 def label(t):
-    return '"' + t.replace('"', '\\"') + '"'
+    if not t: return '""'
+    return '"' + t.replace('\\', '\\\\').replace('"', '\\"') + '"'
     
 def strip_ns(t):
     m = re.match(r'{.*}(.*)',t)
@@ -55,6 +57,7 @@ def strip_ns(t):
     
 def process_transition(id, on, prefix, to, trflags):
     global out, nodes, dynCounter
+    print '#%s on=%s to=%s' % (id,on,to)
     if on in skipTransitions or to in skipStates:
         return
     if '${' in to:
@@ -74,7 +77,15 @@ def process_state(prefix, t, flags=''):
     trflags = ""
     nodes[id] = {'type':strip_ns(t.tag), 'pos':len(nodes), 'label':t.get('id'), 'flags':flags, 'refs':[]}
     for tr in t.findall('flow:transition',ns):
-        process_transition(id, tr.get('on'), prefix, tr.get('to'),trflags)
+        if tr.get('to'):
+            process_transition(id, tr.get('on'), prefix, tr.get('to'), trflags)
+        for ex in tr.findall('flow:evaluate',ns):
+            if ex.get('result'):
+                process_transition(id, tr.get('on'), prefix, '${%s}' % ex.get('result'), trflags)
+        for ex in tr.findall('flow:render',ns):
+            if ex.get('fragments'):
+                nodes[prefix + ex.get('fragments')] = {'type':'fragment', 'pos':len(nodes), 'label':ex.get('fragments'), 'flags':' shape="box" style="dashed,filled" fillcolor="lightgrey"', 'refs':[]}
+                process_transition(id, tr.get('on'), prefix, ex.get('fragments'), trflags)
     for tr in t.findall('flow:if',ns):
         cond = tr.get('test')
         if hideConditions: cond = ""
@@ -192,13 +203,24 @@ def post_process_flow(nodes, prefix):
             
 def process_flow(id, flowXml):
     global out, nodes, extrefs, prefixN, clusterPrefix
+    if args.verbose:
+        print 'Processing flow %s' % id
     prefix = str(prefixN) + "."
     prefixN += 1
     nodes = {}
     print >>out, '  subgraph %s { label=%s; color="grey"; ' % (label(clusterPrefix + id), label(id))
     color = "red" if id == "start" else "orange"
+    startStateLabel = 'start-state'
+    startState = flowXml.get('start-state')
+    if not startState:
+        startStateLabel = ''
+        for t in flowXml:
+            if re.match(r'.*-state$', t.tag):
+                startState = t.get('id')
+                if args.verbose: print '# start state: %s' % startState
+                break
     nodes[id]={'type':'flow', 'pos':len(nodes), 'label':id, 'flags':(' style="filled,bold" fillcolor="%s"' % color),
-        'refs':[{'label':'start-state', 'to':prefix + flowXml.get('start-state'), 'flags':''}]
+        'refs':[{'label':startStateLabel, 'to':prefix + startState, 'flags':''}]
     }
     for t in flowXml.findall('flow:action-state',ns):
         process_state(prefix, t, ' shape=box style=rounded')
@@ -225,37 +247,48 @@ def process_flow(id, flowXml):
                     extrefs.append(ref)
     print >>out, '  }'
 
-def read_flow_registry(webflowXmlPath):
+def read_flow_registry(webflowXmlPaths):
     global out, extrefs, clusterPrefix, prefixN, dynCounter
     clusterPrefix = 'cluster'
     prefixN = 0
     dynCounter = 0
     extrefs = []
-    webflowXml = ET.parse(webflowXmlPath).getroot()
-    webflowXmlDir = os.path.dirname(os.path.abspath(webflowXmlPath))
-    if webflowXml.tag == '{http://www.springframework.org/schema/webflow}flow':
-        clusterPrefix = ''
-        m = re.match(r'.*?([^/\\]+)\.[^/\\.]+$', webflowXmlPath)
-        process_flow(m.group(1), webflowXml)
-    for t in webflowXml.findall('.//flowcfg:flow-location', ns):
-        path = t.get('path').replace('classpath:','')
-        m = re.match(r'.*?([^/\\]+)\.[^/\\.]+$', path)
-        id = t.get('id', m.group(1))
-        if id not in skipFlows:
-            if args.split:
-                process_input(webflowXmlDir + '/' + path, id)
-                extrefs = []
+    for webflowXmlPath in glob.glob(webflowXmlPaths):
+        if args.verbose: print "# processing %s" % webflowXmlPath
+        webflowXml = ET.parse(webflowXmlPath).getroot()
+        webflowXmlDir = os.path.dirname(os.path.abspath(webflowXmlPath))
+        if webflowXml.tag == '{http://www.springframework.org/schema/webflow}flow':
+            clusterPrefix = ''
+            m = re.match(r'.*?(([^/\\\\]+[/\\\\]){'+str(args.flow_id_path_steps-1)+'}[^/\\\\]+)\.[^/\\\\.]+$', webflowXmlPath)
+            if not m:
+                m = re.match(r'.*?([^/\\]+)\.[^/\\.]+$', webflowXmlPath)
+            process_flow(m.group(1).replace('\\','/'), webflowXml)
+        for t in webflowXml.findall('.//flowcfg:flow-location', ns):
+            path = t.get('path').replace('classpath:','')
+            m = re.match(r'.*?(([^/\\\\]+[/\\\\]){'+str(args.flow_id_path_steps-1)+'}[^/\\\\]+)\.[^/\\\\.]+$', path)
+            if not m:
+                m = re.match(r'.*?([^/\\]+)\.[^/\\.]+$', path)
+            id = t.get('id', m.group(1).replace('\\','/'))
+            if os.path.exists(webflowXmlDir + '/' + path):
+                webflowXmlPath = webflowXmlDir + '/' + path
+            elif os.path.exists('.' + path):
+                webflowXmlPath = '.' + path
             else:
-                flowXml = ET.parse(webflowXmlDir + '/' + path).getroot()
-                process_flow(id, flowXml)
-    for ref in extrefs:
-        print >>out, '  %s [label=%s%s]; ' % (label(ref['to']), label(ref['node']['label']), ref['node']['flags'])
-        print >>out, '  %s->%s [label=%s%s];' % (label(ref['from']), label(ref['to']), label(ref['label']), ref['flags'])
+                webflowXmlPath = path
+            if id not in skipFlows:
+                if args.split:
+                    process_input(webflowXmlPath, id)
+                    extrefs = []
+                else:
+                    flowXml = ET.parse(webflowXmlPath).getroot()
+                    process_flow(id, flowXml)
+        for ref in extrefs:
+            print >>out, '  %s [label=%s%s]; ' % (label(ref['to']), label(ref['node']['label']), ref['node']['flags'])
+            print >>out, '  %s->%s [label=%s%s];' % (label(ref['from']), label(ref['to']), label(ref['label']), ref['flags'])
         
 def process_input(webflowXmlPath, output):
     global out
     if output:
-        print 'Processing flow %s' % output
         out = open(output, 'w')
     else:
         out = sys.stdout
