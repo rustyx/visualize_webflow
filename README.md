@@ -4,7 +4,7 @@
 
 This python script processes spring webflow configuration (flow.xml files) and makes a graph of the flow states using graphviz dot utility.
 
-**Note - [python](https://www.python.org/downloads/) and [graphviz](http://www.graphviz.org/Download.php)** must be available on the system PATH.
+**Note - [python](https://www.python.org/downloads/) and [graphviz](http://www.graphviz.org/Download.php)** must be available on the PATH.
 
 ```
 usage: visualize_webflow.py [-h] [-d] [-s] [--skip-flows SKIPFLOWS]
