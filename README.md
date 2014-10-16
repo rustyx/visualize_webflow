@@ -45,3 +45,7 @@ optional arguments:
                         output DOT file name (ignored if -s is specified)
   -v, --verbose         be verbose
 ```
+
+### Example output
+
+![example output](https://raw.githubusercontent.com/rustyx/visualize_webflow/samples/booking-portlet-mvc.gif)
